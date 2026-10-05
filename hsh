@@ -1,0 +1,215 @@
+-- DARK XX Script
+-- GUI ปรับระดับความเร็ว การกระโดด และการบิน
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- ตัวแปรสถานะ
+local flying = false
+local flySpeed = 50
+local walkSpeedValue = 16
+local jumpPowerValue = 50
+
+local bodyVelocity = nil
+local bodyGyro = nil
+
+-- อัปเดต Character เมื่อตัวละครตายแล้วเกิดใหม่
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = Character:WaitForChild("Humanoid")
+    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+    
+    Humanoid.WalkSpeed = walkSpeedValue
+    Humanoid.UseJumpPower = true
+    Humanoid.JumpPower = jumpPowerValue
+end)
+
+-- สร้าง GUI
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local SpeedBox = Instance.new("TextBox")
+local JumpBox = Instance.new("TextBox")
+local FlyBox = Instance.new("TextBox")
+local FlyButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- ตัวเครื่อง GUI หลัก
+MainFrame.Name = "DARK_XX_GUI"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+MainFrame.Size = UDim2.new(0, 220, 0, 260)
+MainFrame.Active = true
+MainFrame.Draggable = true -- สามารถลาก GUI ไปมาได้
+
+local FrameCorner = Instance.new("UICorner")
+FrameCorner.CornerRadius = UDim.new(0, 8)
+FrameCorner.Parent = MainFrame
+
+-- หัวข้อ DARK XX
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Font = Enum.Font.SourceSansBold
+Title.Text = "DARK XX"
+Title.TextColor3 = Color3.fromRGB(255, 0, 0)
+Title.TextSize = 22.000
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = Title
+
+-- ฟังก์ชันปรับวิ่งเร็ว
+SpeedBox.Name = "SpeedBox"
+SpeedBox.Parent = MainFrame
+SpeedBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SpeedBox.Position = UDim2.new(0.1, 0, 0.2, 0)
+SpeedBox.Size = UDim2.new(0.8, 0, 0, 35)
+SpeedBox.Font = Enum.Font.SourceSans
+SpeedBox.PlaceholderText = "ความเร็ววิ่ง (ปกติ 16)"
+SpeedBox.Text = ""
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBox.TextSize = 14.000
+
+SpeedBox.FocusLost:Connect(function()
+    local val = tonumber(SpeedBox.Text)
+    if val then
+        walkSpeedValue = val
+        Humanoid.WalkSpeed = val
+    end
+end)
+
+-- ฟังก์ชันปรับกระโดดสูง
+JumpBox.Name = "JumpBox"
+JumpBox.Parent = MainFrame
+JumpBox.Position = UDim2.new(0.1, 0, 0.38, 0)
+JumpBox.Size = UDim2.new(0.8, 0, 0, 35)
+JumpBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+JumpBox.Font = Enum.Font.SourceSans
+JumpBox.PlaceholderText = "แรงกระโดด (ปกติ 50)"
+JumpBox.Text = ""
+JumpBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+JumpBox.TextSize = 14.000
+
+JumpBox.FocusLost:Connect(function()
+    local val = tonumber(JumpBox.Text)
+    if val then
+        jumpPowerValue = val
+        Humanoid.UseJumpPower = true
+        Humanoid.JumpPower = val
+    end
+end)
+
+-- ฟังก์ชันปรับความเร็วบิน
+FlyBox.Name = "FlyBox"
+FlyBox.Parent = MainFrame
+FlyBox.Position = UDim2.new(0.1, 0, 0.56, 0)
+FlyBox.Size = UDim2.new(0.8, 0, 0, 35)
+FlyBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+FlyBox.Font = Enum.Font.SourceSans
+FlyBox.PlaceholderText = "ความเร็วบิน (ปกติ 50)"
+FlyBox.Text = ""
+FlyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyBox.TextSize = 14.000
+
+FlyBox.FocusLost:Connect(function()
+    local val = tonumber(FlyBox.Text)
+    if val then
+        flySpeed = val
+    end
+end)
+
+-- ปุ่มเปิด/ปิด บิน
+FlyButton.Name = "FlyButton"
+FlyButton.Parent = MainFrame
+FlyButton.Position = UDim2.new(0.1, 0, 0.75, 0)
+FlyButton.Size = UDim2.new(0.8, 0, 0, 40)
+FlyButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+FlyButton.Font = Enum.Font.SourceSansBold
+FlyButton.Text = "ระบบบิน : OFF"
+FlyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyButton.TextSize = 16.000
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 6)
+BtnCorner.Parent = FlyButton
+
+-- ระบบการบิน (Fly Mechanism)
+local function startFlying()
+    flying = true
+    FlyButton.Text = "ระบบบิน : ON"
+    FlyButton.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(1, 1, 1) * 10^6
+    bodyVelocity.Velocity = Vector3.zero
+    bodyVelocity.Parent = HumanoidRootPart
+
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(1, 1, 1) * 10^6
+    bodyGyro.CFrame = HumanoidRootPart.CFrame
+    bodyGyro.Parent = HumanoidRootPart
+
+    Humanoid.PlatformStand = true
+end
+
+local function stopFlying()
+    flying = false
+    FlyButton.Text = "ระบบบิน : OFF"
+    FlyButton.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+
+    Humanoid.PlatformStand = false
+end
+
+FlyButton.MouseButton1Click:Connect(function()
+    if flying then
+        stopFlying()
+    else
+        startFlying()
+    end
+end)
+
+-- อัปเดตทิศทางการบินตามมุมกล้องและปุ่มกด
+RunService.RenderStepped:Connect(function()
+    if flying and HumanoidRootPart and bodyVelocity and bodyGyro then
+        local camera = workspace.CurrentCamera
+        local moveDir = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDir = moveDir + camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDir = moveDir - camera.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDir = moveDir - camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDir = moveDir + camera.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + Vector3.new(0, 1, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveDir = moveDir - Vector3.new(0, 1, 0)
+        end
+
+        bodyVelocity.Velocity = moveDir * flySpeed
+        bodyGyro.CFrame = camera.CFrame
+    end
+end)
